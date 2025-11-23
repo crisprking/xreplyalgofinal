@@ -12,6 +12,10 @@ import { type PostAnalysis, type ReplyStrategy, type DocumentAnalysis, type Post
 import { SparklesIcon, BrainCircuitIcon, DocumentIcon, RiskIcon } from './components/icons/Icons';
 import { DocumentAnalysisView } from './components/DocumentAnalysisView';
 import { PostCompanionView } from './components/PostCompanionView';
+import { KeyboardShortcuts, useKeyboardShortcuts } from './components/KeyboardShortcuts';
+import { QuickActionsPanel } from './components/QuickActionsPanel';
+import { ComparisonMode } from './components/ComparisonMode';
+import { useAutoSave } from './hooks/useAutoSave';
 
 
 type ViewMode = 'x-post' | 'post-companion' | 'document' | 'metrics';
@@ -41,6 +45,13 @@ export default function App() {
 
     // System metrics state
     const [systemMetrics, setSystemMetrics] = useState<any>(null);
+
+    // Comparison mode state
+    const [showComparison, setShowComparison] = useState(false);
+
+    // Favorites state (auto-saved)
+    const [favorites, setFavorites] = useState<ReplyStrategy[]>([]);
+    useAutoSave(favorites, { key: 'apex-favorites', delay: 500 });
 
     // Update system metrics periodically
     useEffect(() => {
@@ -168,7 +179,59 @@ export default function App() {
         clearCache();
         alert('System cache cleared successfully!');
     }, []);
-    
+
+    // Quick Actions Handlers
+    const handleCopyAll = useCallback(() => {
+        const allText = strategies.map((s, i) => `\n=== STRATEGY ${i + 1}: ${s.strategy} ===\nScore: ${s.scores.algorithmScore}\n\n${s.replyText}\n`).join('\n');
+        navigator.clipboard.writeText(allText);
+    }, [strategies]);
+
+    const handleExport = useCallback(() => {
+        const exportData = {
+            post: { text: analysis?.originalPostText, author: analysis?.originalAuthorHandle },
+            analysis,
+            strategies: strategies.map(s => ({
+                strategy: s.strategy,
+                reply: s.replyText,
+                scores: s.scores,
+                quality: s.gauntletResults.sanctum.qualityTier,
+            })),
+            timestamp: new Date().toISOString(),
+        };
+        navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+    }, [analysis, strategies]);
+
+    const handleSaveFavorite = useCallback((strategy: ReplyStrategy) => {
+        setFavorites(prev => [...prev, strategy]);
+    }, []);
+
+    const handleCompare = useCallback(() => {
+        if (strategies.length >= 2) {
+            setShowComparison(true);
+        }
+    }, [strategies]);
+
+    // Keyboard Shortcuts
+    const shortcuts = [
+        ...useKeyboardShortcuts([
+            { key: 'c', action: () => strategies[0] && navigator.clipboard.writeText(strategies[0].replyText), description: 'Copy best reply' },
+            { key: 'a', action: handleCopyAll, description: 'Copy all replies' },
+            { key: 'e', action: handleExport, description: 'Export to clipboard' },
+            { key: 's', action: () => strategies[0] && handleSaveFavorite(strategies[0]), description: 'Save to favorites' },
+            { key: 'm', action: handleCompare, description: 'Compare mode' },
+        ], 'Quick Actions'),
+        ...useKeyboardShortcuts([
+            { key: '1', action: () => setViewMode('x-post'), description: 'Reply Analyzer' },
+            { key: '2', action: () => setViewMode('post-companion'), description: 'Post Companion' },
+            { key: '3', action: () => setViewMode('document'), description: 'Document Analysis' },
+            { key: '4', action: () => setViewMode('metrics'), description: 'System Health' },
+        ], 'Navigation'),
+        ...useKeyboardShortcuts([
+            { key: 'r', ctrl: true, action: () => lastRequest && handleAnalyze(lastRequest.postText, lastRequest.authorHandle), description: 'Retry last analysis' },
+            { key: 'k', ctrl: true, action: handleClearCache, description: 'Clear cache' },
+        ], 'System'),
+    ];
+
     const isRetryableError = error?.includes('Service Unavailable') || error?.includes('Network Error') || error?.includes('high traffic') || error?.includes('Model Overloaded');
     const isDocumentRetryableError = documentError?.includes('Service Unavailable') || documentError?.includes('Network Error') || documentError?.includes('high traffic') || documentError?.includes('Model Overloaded');
 
@@ -294,7 +357,32 @@ export default function App() {
             <footer className="text-center py-6 text-sm text-slate-500">
                 <p>APEX X ULTIMATE SYSTEM v8.0 © 2025. All Rights Reserved.</p>
                 <p>Engineered for elite performance with Twitter algorithm integration.</p>
+                <p className="mt-1 text-xs text-slate-600">
+                    ⌨️ Press <kbd className="px-1 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs">?</kbd> for keyboard shortcuts
+                </p>
             </footer>
+
+            {/* Keyboard Shortcuts */}
+            <KeyboardShortcuts handlers={shortcuts} />
+
+            {/* Quick Actions Panel */}
+            {viewMode === 'x-post' && strategies.length > 0 && (
+                <QuickActionsPanel
+                    strategies={strategies}
+                    onCopyAll={handleCopyAll}
+                    onExport={handleExport}
+                    onSaveFavorite={handleSaveFavorite}
+                    onCompare={handleCompare}
+                />
+            )}
+
+            {/* Comparison Mode */}
+            {showComparison && strategies.length >= 2 && (
+                <ComparisonMode
+                    strategies={strategies}
+                    onClose={() => setShowComparison(false)}
+                />
+            )}
         </div>
     );
 }

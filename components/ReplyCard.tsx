@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { type ReplyStrategy, type ABVariant } from '../types';
 import { GauntletDisplay } from './GauntletDisplay';
+import { EnhancedScorePanel } from './EnhancedScorePanel';
 import { ClipboardIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, StarIcon, RiskIcon } from './icons/Icons';
 
 interface ReplyCardProps {
