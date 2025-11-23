@@ -1,7 +1,8 @@
 
-// Enhanced type definitions for APEX X Ultimate System v7.4
+// Enhanced type definitions for APEX X Ultimate System v8.0 - Elite Algorithm Integration
 
 export interface Scores {
+    // Core Twitter Algorithm Metrics
     authority: number;
     hook: number;
     wealthFit: number;
@@ -13,7 +14,27 @@ export interface Scores {
     memorability: number;
     networkEffect: number;
     timingOptimal: number;
-    graphJetRelevance: number; // Based on Twitter's GraphJet
+    graphJetRelevance: number;
+
+    // Enhanced Twitter Algorithm Features (from the-algorithm research)
+    semanticRelevance: number; // SimClusters-inspired content alignment
+    conversationQuality: number; // Likelihood to spark quality replies
+    informationDensity: number; // Signal-to-noise ratio
+    perspectiveDiversity: number; // Introduces new viewpoint (Community Notes principle)
+    engagementVelocity: number; // Predicted engagement rate
+    authorAffinityScore: number; // Real-Graph inspired connection strength
+    contentFreshness: number; // Temporal relevance (Earlybird feature)
+    visualAppeal: number; // Format and readability score
+    controversyBalance: number; // Engaging but not polarizing
+    expertiseSignaling: number; // Domain authority indicators
+    reciprocityPotential: number; // Likelihood author engages back
+    threadWorthiness: number; // Potential to become a thread starter
+
+    // Heavy Ranker Inspired Probabilities
+    pEngagement: number; // Overall engagement probability
+    pQualityInteraction: number; // High-value interaction probability
+    pViralSpread: number; // Retweet cascade probability
+    pLongTermValue: number; // Bookmark/save probability
 }
 
 export interface SanctumCheck {
@@ -57,11 +78,31 @@ export interface PostDeconstruction {
     temporalRelevance: 'evergreen' | 'trending' | 'breaking' | 'seasonal';
     graphInfluence: 'central' | 'peripheral' | 'bridge';
     graphJetContext: {
-        cluster: string; // e.g., "Tech Twitter", "Crypto", "Politics"
-        centrality: number; // 0-100
+        cluster: string;
+        centrality: number;
         interactionVelocity: 'static' | 'rising' | 'viral';
     };
     heavyRankerFeatures: HeavyRankerFeatures;
+
+    // Enhanced Analysis Features
+    semanticClusters: string[]; // SimClusters-style topic classification
+    conversationalGaps: string[]; // Missing perspectives for high-value replies
+    trendAlignment: {
+        isAlignedWithTrends: boolean;
+        relevantTrends: string[];
+        trendStrength: number; // 0-100
+    };
+    engagementPatterns: {
+        likelyToReply: boolean;
+        likelyToRetweet: boolean;
+        likelyToBookmark: boolean;
+        optimalReplyWindow: string; // e.g., "next 2-4 hours"
+    };
+    audienceInsights: {
+        primaryDemographic: string;
+        expertiseLevel: 'beginner' | 'intermediate' | 'expert';
+        engagementStyle: 'casual' | 'professional' | 'technical';
+    };
 }
 
 export interface PostAnalysis {
@@ -208,4 +249,56 @@ export interface CircuitBreakerStatus {
     failures: number;
     lastFailure?: number;
     nextRetry?: number;
+}
+
+// X Post Companion Types
+export interface PostIdea {
+    id: string;
+    content: string;
+    category: 'thought-leadership' | 'educational' | 'personal-story' | 'controversial-take' | 'trend-commentary' | 'question' | 'data-driven';
+    reasoning: string;
+    estimatedEngagement: number; // 0-100
+    optimalPostingTime: string;
+    trendAlignment: string[];
+    hooks: string[];
+    predictedScores: {
+        viralPotential: number;
+        authorityBuilding: number;
+        conversationStarter: number;
+        algorithmFavorability: number;
+    };
+    alternativeVersions: string[];
+    hashtagSuggestions: string[];
+    threadExpansionIdeas?: string[];
+}
+
+export interface TrendingTopic {
+    topic: string;
+    volume: 'low' | 'medium' | 'high' | 'viral';
+    category: string;
+    relevanceScore: number;
+    postingAngle: string;
+    examplePost: string;
+    timeWindow: string; // "next 6 hours", "today", etc.
+}
+
+export interface PostCompanionAnalysis {
+    personalBrandAnalysis: {
+        currentPositioning: string;
+        strengthAreas: string[];
+        opportunityAreas: string[];
+        recommendedTopics: string[];
+    };
+    topIdeas: PostIdea[];
+    trendingOpportunities: TrendingTopic[];
+    contentCalendar: {
+        morning: PostIdea[];
+        afternoon: PostIdea[];
+        evening: PostIdea[];
+    };
+    engagementStrategy: {
+        bestPostingTimes: string[];
+        contentMixRecommendation: string;
+        audienceGrowthTips: string[];
+    };
 }

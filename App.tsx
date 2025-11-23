@@ -7,14 +7,14 @@ import { AutomationDashboard } from './components/AutomationDashboard';
 import { SystemMetrics } from './components/SystemMetrics';
 import { Loader } from './components/Loader';
 import { ErrorDisplay } from './components/ErrorDisplay';
-import { generateReplies, getSystemMetrics, clearCache, analyzeDocument } from './services/geminiService';
-import { createXAutomationService, DEFAULT_AUTOMATION_CONFIG, DEFAULT_SEARCH_CRITERIA } from './services/x-automation-service';
-import { type PostAnalysis, type ReplyStrategy, type XApiCredentials, type AutomationConfig, type PostSearchCriteria, type PostCandidate, type AutomationResult, type DocumentAnalysis } from './types';
-import { SparklesIcon, BrainCircuitIcon, RiskIcon, DocumentIcon } from './components/icons/Icons';
+import { generateReplies, getSystemMetrics, clearCache, analyzeDocument, generatePostIdeas } from './services/geminiService';
+import { type PostAnalysis, type ReplyStrategy, type DocumentAnalysis, type PostCompanionAnalysis } from './types';
+import { SparklesIcon, BrainCircuitIcon, DocumentIcon, RiskIcon } from './components/icons/Icons';
 import { DocumentAnalysisView } from './components/DocumentAnalysisView';
+import { PostCompanionView } from './components/PostCompanionView';
 
 
-type ViewMode = 'x-post' | 'document' | 'automation' | 'metrics';
+type ViewMode = 'x-post' | 'post-companion' | 'document' | 'metrics';
 
 export default function App() {
     // X Post analysis state
@@ -30,33 +30,17 @@ export default function App() {
     const [documentError, setDocumentError] = useState<string | null>(null);
     const [documentAnalysis, setDocumentAnalysis] = useState<DocumentAnalysis | null>(null);
     const [lastDocumentRequest, setLastDocumentRequest] = useState<string | null>(null);
-    
-    // Automation state
+
+    // Post Companion state
+    const [isCompanionLoading, setIsCompanionLoading] = useState(false);
+    const [companionError, setCompanionError] = useState<string | null>(null);
+    const [companionAnalysis, setCompanionAnalysis] = useState<PostCompanionAnalysis | null>(null);
+
+    // View state
     const [viewMode, setViewMode] = useState<ViewMode>('x-post');
-    const [automationService, setAutomationService] = useState<any>(null);
-    const [automationConfig, setAutomationConfig] = useState<AutomationConfig>(DEFAULT_AUTOMATION_CONFIG);
-    const [searchCriteria, setSearchCriteria] = useState<PostSearchCriteria>(DEFAULT_SEARCH_CRITERIA);
-    const [credentials, setCredentials] = useState<XApiCredentials | null>(null);
-    const [automationStatus, setAutomationStatus] = useState<any>(null);
-    const [candidatePosts, setCandidatePosts] = useState<PostCandidate[]>([]);
-    const [automationResults, setAutomationResults] = useState<AutomationResult[]>([]);
-    const [isAutomationRunning, setIsAutomationRunning] = useState(false);
 
     // System metrics state
     const [systemMetrics, setSystemMetrics] = useState<any>(null);
-
-    // Initialize automation service when credentials are provided
-    useEffect(() => {
-        if (credentials && credentials.bearerToken) {
-            try {
-                const service = createXAutomationService(credentials, automationConfig);
-                setAutomationService(service);
-                setAutomationStatus(service.getStatus());
-            } catch (err) {
-                setError(`Failed to initialize automation: ${err instanceof Error ? err.message : 'Unknown error'}`);
-            }
-        }
-    }, [credentials, automationConfig]);
 
     // Update system metrics periodically
     useEffect(() => {
@@ -160,64 +144,25 @@ export default function App() {
         }
     }, [lastDocumentRequest, handleAnalyzeDocument]);
 
-    const handleCredentialChange = useCallback((field: keyof XApiCredentials, value: string) => {
-        setCredentials(prev => ({
-            ...(prev || { bearerToken: '', appKey: '', appSecret: '', accessToken: '', accessSecret: '' }),
-            [field]: value
-        }));
+    // Post Companion handler
+    const handleGeneratePostIdeas = useCallback(async (context?: { niche?: string; goals?: string; recentPosts?: string[] }) => {
+        setIsCompanionLoading(true);
+        setCompanionError(null);
+        setCompanionAnalysis(null);
+
+        try {
+            const result = await generatePostIdeas(context);
+            setCompanionAnalysis(result);
+        } catch (err) {
+            if (err instanceof Error) {
+                setCompanionError(err.message);
+            } else {
+                setCompanionError('An unknown error occurred during post idea generation.');
+            }
+        } finally {
+            setIsCompanionLoading(false);
+        }
     }, []);
-
-    // Automation handlers
-    const handleFindCandidates = useCallback(async () => {
-        if (!automationService) {
-            setError('Automation service not initialized. Please configure your Twitter Bearer Token first.');
-            return;
-        }
-
-        setIsAutomationRunning(true);
-        setError(null);
-
-        try {
-            const candidates = await automationService.findCandidatePosts(searchCriteria);
-            setCandidatePosts(candidates);
-            console.log(`Found ${candidates.length} candidate posts`);
-        } catch (err) {
-            setError(`Failed to find candidates: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        } finally {
-            setIsAutomationRunning(false);
-        }
-    }, [automationService, searchCriteria]);
-
-    const handleRunAutomation = useCallback(async () => {
-        if (!automationService) {
-            setError('Automation service not initialized. Please configure your Twitter Bearer Token first.');
-            return;
-        }
-
-        setIsAutomationRunning(true);
-        setError(null);
-        setAutomationResults([]);
-
-        try {
-            const results = await automationService.runAutomation(searchCriteria);
-            setAutomationResults(prev => [...results, ...prev].slice(0, 50)); // Keep last 50 results
-            setAutomationStatus(automationService.getStatus());
-        } catch (err) {
-            setError(`Automation failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        } finally {
-            setIsAutomationRunning(false);
-        }
-    }, [automationService, searchCriteria]);
-
-    const handleUpdateConfig = useCallback((newConfig: Partial<AutomationConfig>) => {
-        const updatedConfig = { ...automationConfig, ...newConfig };
-        setAutomationConfig(updatedConfig);
-        
-        if (automationService) {
-            automationService.updateConfig(newConfig);
-            setAutomationStatus(automationService.getStatus());
-        }
-    }, [automationConfig, automationService]);
 
     const handleClearCache = useCallback(() => {
         clearCache();
@@ -236,23 +181,34 @@ export default function App() {
 
             {/* Navigation */}
             <div className="mb-8 flex justify-center">
-                <div className="glass-card rounded-xl p-1 sm:p-2 flex gap-1 sm:gap-2">
+                <div className="glass-card rounded-xl p-1 sm:p-2 flex gap-1 sm:gap-2 overflow-x-auto">
                     <button
                         onClick={() => setViewMode('x-post')}
-                        className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
                             viewMode === 'x-post'
                                 ? 'bg-blue-600 text-white shadow-lg'
                                 : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                         }`}
                     >
                         <BrainCircuitIcon className="w-4 h-4" />
-                        X Post Analysis
+                        Reply Analyzer
                     </button>
-                     <button
-                        onClick={() => setViewMode('document')}
-                        className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                            viewMode === 'document'
+                    <button
+                        onClick={() => setViewMode('post-companion')}
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
+                            viewMode === 'post-companion'
                                 ? 'bg-cyan-600 text-white shadow-lg'
+                                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                    >
+                        <SparklesIcon className="w-4 h-4" />
+                        Post Companion
+                    </button>
+                    <button
+                        onClick={() => setViewMode('document')}
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
+                            viewMode === 'document'
+                                ? 'bg-purple-600 text-white shadow-lg'
                                 : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                         }`}
                     >
@@ -260,25 +216,14 @@ export default function App() {
                         Document Analysis
                     </button>
                     <button
-                        onClick={() => setViewMode('automation')}
-                        className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base ${
-                            viewMode === 'automation'
-                                ? 'bg-purple-600 text-white shadow-lg'
-                                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                        }`}
-                    >
-                        <RiskIcon className="w-4 h-4" />
-                        Automation
-                    </button>
-                    <button
                         onClick={() => setViewMode('metrics')}
-                        className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition-all text-sm sm:text-base whitespace-nowrap ${
                             viewMode === 'metrics'
                                 ? 'bg-green-600 text-white shadow-lg'
                                 : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                         }`}
                     >
-                        <SparklesIcon className="w-4 h-4" />
+                        <RiskIcon className="w-4 h-4" />
                         System Health
                     </button>
                 </div>
@@ -308,41 +253,33 @@ export default function App() {
                             <div className="flex justify-center items-center mb-4">
                                 <SparklesIcon className="w-12 h-12 text-blue-500" />
                             </div>
-                            <h2 className="text-2xl font-bold text-white mb-2">Ready to Dominate?</h2>
+                            <h2 className="text-2xl font-bold text-white mb-2">APEX X ULTIMATE SYSTEM v8.0</h2>
                             <p className="text-slate-400 max-w-2xl mx-auto">
-                                Use the 'X Post Analysis' for replies, 'Document Analysis' for deep dives, or 'Automation' to put engagement on autopilot.
+                                Analyze X posts for optimal replies, generate trending post ideas, or analyze documents — all powered by Twitter's open-source algorithm insights.
                             </p>
                         </div>
                     )}
                 </>
             )}
 
+            {/* Post Companion View */}
+            {viewMode === 'post-companion' && (
+                <PostCompanionView
+                    onGenerate={handleGeneratePostIdeas}
+                    isLoading={isCompanionLoading}
+                    analysis={companionAnalysis}
+                    error={companionError}
+                />
+            )}
+
             {/* Document Analysis View */}
             {viewMode === 'document' && (
-                <DocumentAnalysisView 
+                <DocumentAnalysisView
                     onAnalyze={handleAnalyzeDocument}
                     isLoading={isDocumentLoading}
                     analysis={documentAnalysis}
                     error={documentError}
                     onRetry={isDocumentRetryableError ? handleDocumentRetry : undefined}
-                />
-            )}
-
-            {/* Automation View */}
-            {viewMode === 'automation' && (
-                <AutomationDashboard
-                    credentials={credentials}
-                    onCredentialsChange={handleCredentialChange}
-                    config={automationConfig}
-                    onConfigChange={handleUpdateConfig}
-                    searchCriteria={searchCriteria}
-                    onSearchCriteriaChange={setSearchCriteria}
-                    automationStatus={automationStatus}
-                    candidatePosts={candidatePosts}
-                    automationResults={automationResults}
-                    isRunning={isAutomationRunning}
-                    onFindCandidates={handleFindCandidates}
-                    onRunAutomation={handleRunAutomation}
                 />
             )}
 
@@ -355,8 +292,8 @@ export default function App() {
             )}
             </main>
             <footer className="text-center py-6 text-sm text-slate-500">
-                <p>APEX X ULTIMATE SYSTEM v7.0 © 2025. All Rights Reserved.</p>
-                <p>Engineered for elite performance with automated high-engagement targeting.</p>
+                <p>APEX X ULTIMATE SYSTEM v8.0 © 2025. All Rights Reserved.</p>
+                <p>Engineered for elite performance with Twitter algorithm integration.</p>
             </footer>
         </div>
     );
