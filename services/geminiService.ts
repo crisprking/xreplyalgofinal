@@ -234,6 +234,7 @@ const responseSchema = {
         wordCount: { type: Type.NUMBER },
         sophistication: { type: Type.STRING },
         tone: { type: Type.STRING },
+        detectedLanguage: { type: Type.STRING }, // Language detected in the original post
         deconstruction: {
           type: Type.OBJECT,
           properties: {
@@ -390,6 +391,12 @@ You must act as a strict gatekeeper ("The Sanctum") for all generated replies.
 - **Zero Tolerance** for toxic, hateful, or controversial negativity.
 - **High Status Tone**: Replies must sound like an expert, peer, or witty observer, not a bot or a fanboy.
 - **Value Add**: Replies must add new information, a counter-point, or a specific insight.
+
+**MULTILINGUAL PROTOCOL (MANDATORY):**
+- CRITICAL: You MUST detect the language of the original post and generate ALL replies in that SAME language.
+- If the post is in Spanish, reply in Spanish. If in Japanese, reply in Japanese. If in Arabic, reply in Arabic. And so on.
+- This is essential for engagement - users engage more with replies in their native language.
+- The language detection must be accurate and the reply must be natural in that language, not machine-translated.
 
 POST TO ANALYZE:
 Author: ${authorHandle || 'Unknown'}

@@ -193,6 +193,44 @@ export const AutomationDashboard = React.memo(function AutomationDashboard({
                              <div className="text-sm">Min Confidence: <input type="number" value={config.safetyChecks.minimumConfidenceScore} onChange={(e) => handleSafetyCheckChange('minimumConfidenceScore', parseInt(e.target.value))} className="w-16 bg-slate-900/50 p-1 rounded" />%</div>
                         </div>
                     </div>
+                    <div className="glass-card rounded-2xl p-4">
+                        <h3 className="text-lg font-bold text-white mb-3">Search Criteria</h3>
+                        <p className="text-xs text-slate-400 mb-2">Configure filters for finding viral posts (supports all languages)</p>
+                        <div className="space-y-3">
+                             <div className="text-sm">
+                                <label className="text-slate-400 block mb-1">Min Views (millions):</label>
+                                <input
+                                    type="number"
+                                    value={searchCriteria.minViews / 1000000}
+                                    onChange={(e) => onSearchCriteriaChange({ ...searchCriteria, minViews: parseFloat(e.target.value) * 1000000 })}
+                                    className="w-20 bg-slate-900/50 p-1 rounded"
+                                    step="0.1"
+                                    min="0.1"
+                                />M
+                            </div>
+                             <div className="text-sm">
+                                <label className="text-slate-400 block mb-1">Max Age (hours):</label>
+                                <input
+                                    type="number"
+                                    value={searchCriteria.maxAgeHours}
+                                    onChange={(e) => onSearchCriteriaChange({ ...searchCriteria, maxAgeHours: parseInt(e.target.value) })}
+                                    className="w-16 bg-slate-900/50 p-1 rounded"
+                                    min="1"
+                                    max="168"
+                                />h
+                            </div>
+                             <div className="text-sm">
+                                <label className="text-slate-400 block mb-1">Keywords:</label>
+                                <input
+                                    type="text"
+                                    value={searchCriteria.keywords?.join(', ') || ''}
+                                    onChange={(e) => onSearchCriteriaChange({ ...searchCriteria, keywords: e.target.value.split(',').map(k => k.trim()).filter(k => k) })}
+                                    className="w-full bg-slate-900/50 p-1 rounded text-xs"
+                                    placeholder="AI, startup, tech"
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div className="lg:col-span-2 space-y-6">
                      {candidatePosts.length > 0 && (
@@ -205,7 +243,13 @@ export const AutomationDashboard = React.memo(function AutomationDashboard({
                                             <div><span className="font-semibold text-white">{c.authorName}</span> <span className="text-slate-400">{c.authorHandle}</span></div>
                                             <div className="font-bold text-green-400">{((c.eligibilityScore ?? 0) * 100).toFixed(0)}%</div>
                                         </div>
-                                        <p className="text-slate-200 text-sm leading-relaxed">{c.text}</p>
+                                        <p className="text-slate-200 text-sm leading-relaxed mb-2">{c.text}</p>
+                                        <div className="flex gap-4 text-xs text-slate-400">
+                                            <span>👁 {(c.metrics.views / 1000000).toFixed(1)}M views</span>
+                                            <span>❤️ {c.metrics.likes.toLocaleString()}</span>
+                                            <span>🔁 {c.metrics.reposts.toLocaleString()}</span>
+                                            <span>💬 {c.metrics.replies.toLocaleString()}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

@@ -68,6 +68,7 @@ export interface PostAnalysis {
     wordCount: number;
     sophistication: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXPERT';
     tone: string;
+    detectedLanguage?: string; // Language detected in the original post (ISO 639-1 or full name)
     deconstruction: PostDeconstruction;
     originalPostText: string;
     originalAuthorHandle: string;

@@ -147,7 +147,8 @@ export class XAutomationService {
                 throw new Error("Circuit Breaker is OPEN. Requests halted temporarily.");
             }
 
-            let searchQuery = (criteria.keywords && criteria.keywords.length > 0 ? criteria.keywords.join(' OR ') : '(AI OR startup OR tech OR business)') + ' lang:en -is:retweet -is:reply';
+            // Build search query - removed lang:en to support all languages
+            let searchQuery = (criteria.keywords && criteria.keywords.length > 0 ? criteria.keywords.join(' OR ') : '(AI OR startup OR tech OR business)') + ' -is:retweet -is:reply';
             if (criteria.excludeKeywords && criteria.excludeKeywords.length > 0) {
                 searchQuery += ' ' + criteria.excludeKeywords.map(k => `-${k}`).join(' ');
             }
@@ -177,7 +178,13 @@ export class XAutomationService {
 
                 const metrics = tweet.public_metrics!;
                 const authorMetrics = author.public_metrics!;
-                
+
+                // Skip posts below minimum view threshold (key filter for viral posts)
+                const viewCount = metrics.impression_count || 0;
+                if (criteria.minViews && viewCount < criteria.minViews) {
+                    continue;
+                }
+
                 if(this.config.blacklistedAccounts?.includes(author.username)) continue;
                 if(criteria.authorFollowerMin && authorMetrics.followers_count < criteria.authorFollowerMin) continue;
 
@@ -402,8 +409,8 @@ export const DEFAULT_AUTOMATION_CONFIG: AutomationConfig = {
 };
 
 export const DEFAULT_SEARCH_CRITERIA: PostSearchCriteria = {
-    minViews: 100000,
-    maxAgeHours: 12,
+    minViews: 1000000, // 1 million views minimum for viral posts
+    maxAgeHours: 24,   // Extended to 24 hours to find more viral posts
     keywords: ['AI', 'startup', 'tech', 'innovation', 'business', 'SaaS'],
     excludeKeywords: ['politics', 'spam'],
     authorFollowerMin: 10000
