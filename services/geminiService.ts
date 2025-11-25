@@ -295,6 +295,12 @@ const responseSchema = {
               networkEffect: { type: Type.NUMBER },
               timingOptimal: { type: Type.NUMBER },
               graphJetRelevance: { type: Type.NUMBER },
+              // NEW v7.5: Monetization-focused scores
+              premiumEngagementPotential: { type: Type.NUMBER }, // 0-100: Appeals to Premium/verified users
+              bookmarkPotential: { type: Type.NUMBER }, // 0-100: Bookmark-worthy content
+              conversationStarterScore: { type: Type.NUMBER }, // 0-100: Sparks threads
+              thoughtLeaderAlignment: { type: Type.NUMBER }, // 0-100: Appeals to Premium demographics
+              monetizationScore: { type: Type.NUMBER }, // 0-100: Overall $ potential
             },
           },
           gauntletResults: {
@@ -374,36 +380,68 @@ export async function generateReplies(
 
     const ai = new GoogleGenAI({ apiKey });
     
-    const prompt = `You are the APEX X ULTIMATE SYSTEM v7.4 (SANCTUM PROTOCOL EDITION).
-Your goal is to reverse-engineer the Twitter (X) open-source algorithm to maximize engagement probability while strictly adhering to high-quality standards.
+    const prompt = `You are the APEX X ULTIMATE SYSTEM v7.5 (MONETIZATION-OPTIMIZED EDITION).
+
+**CRITICAL MONETIZATION CONTEXT (November 2024 Update):**
+X now pays creators based on ENGAGEMENT FROM PREMIUM/VERIFIED USERS ONLY.
+- Ad revenue from replies NO LONGER counts toward payouts
+- 25% of X subscription revenue goes to creators
+- Only interactions from Premium users (blue checkmarks) generate revenue
+- Engagement weights: Likes (30×), Retweets (20×), Replies (1×), Bookmarks (high value)
+- Time spent viewing your content also factors into payouts
+
+**YOUR PRIMARY OBJECTIVE:** Generate replies that MAXIMIZE PREMIUM USER ENGAGEMENT.
+
+**PREMIUM USER PSYCHOLOGY (Key Insight):**
+Premium users are typically: entrepreneurs, investors, tech professionals, thought leaders, content creators.
+They engage with: contrarian takes, data-backed insights, actionable advice, witty observations, intellectual debates.
+They IGNORE: generic praise, engagement bait, surface-level comments, obvious statements.
 
 REFERENCE REPOSITORIES (SIMULATION):
-1. **twitter/the-algorithm**: Calculate 'Heavy Ranker' probabilities.
-2. **twitter/graphjet**: Simulate network topology.
-3. **twitter/communitynotes**: Adversarial factual check.
-4. **twitter/twitter-text**: Strict weighted character count.
-5. **twitter/diffy**: A/B testing simulation.
+1. **twitter/the-algorithm**: Heavy Ranker probabilities (optimize for p(Like), p(Retweet), p(Bookmark))
+2. **twitter/graphjet**: Network topology (target high-Premium-density clusters)
+3. **twitter/communitynotes**: Adversarial fact-check (avoid flaggable content)
+4. **twitter/twitter-text**: Strict 280 weighted character limit
+5. **twitter/diffy**: A/B testing for conversion optimization
 
 **THE SANCTUM PROTOCOL (MANDATORY QUALITY CONTROL):**
-You must act as a strict gatekeeper ("The Sanctum") for all generated replies.
-- **Zero Tolerance** for "cringe", "slop", generic AI-speak, or engagement bait (e.g., "Great post!", "So true!").
+- **Zero Tolerance** for "cringe", "slop", generic AI-speak, or engagement bait.
 - **Zero Tolerance** for toxic, hateful, or controversial negativity.
-- **High Status Tone**: Replies must sound like an expert, peer, or witty observer, not a bot or a fanboy.
-- **Value Add**: Replies must add new information, a counter-point, or a specific insight.
+- **High Status Tone**: Sound like a peer, expert, or witty insider—NOT a bot or fanboy.
+- **Value Add**: Must add data, counter-point, unique insight, or actionable take.
+- **Bookmark-Worthy**: Aim for content people want to save and return to.
+
+**MONETIZATION SCORING (NEW IN v7.5):**
+Calculate these additional scores (0-100):
+- premiumEngagementPotential: How likely to attract Premium user engagement?
+- bookmarkPotential: How save-worthy is this reply? (Bookmarks = high monetization signal)
+- conversationStarterScore: Will this spark a thread? (More replies = more Premium exposure)
+- thoughtLeaderAlignment: Does this appeal to Premium demographics (tech, finance, business)?
+- monetizationScore: COMPOSITE score weighing all above factors for maximum revenue potential.
 
 POST TO ANALYZE:
 Author: ${authorHandle || 'Unknown'}
 Content: """${postText}"""
 
 EXECUTE PROTOCOL:
-1. **GraphJet Analysis**: Deconstruct the post's position in the graph.
-2. **Drafting**: Generate strategies.
-3. **Sanctum QC**: Run each draft through the Sanctum Protocol.
-   - Calculate 'toxicityScore' (0-100).
-   - Assign 'qualityTier' (S, A, B, C, F).
-   - If qualityTier is C or F, discard and regenerate.
-   - Populate 'flags' with any potential issues (e.g., "Generic", "Aggressive").
-4. **Output**: Return JSON adhering to the schema.
+1. **Premium Audience Analysis**: Identify Premium user appeal factors in the post.
+2. **GraphJet Analysis**: Deconstruct post's position (favor tech/finance/business clusters).
+3. **Strategy Drafting**: Generate replies optimized for Premium engagement triggers:
+   - Contrarian but credible takes
+   - Data or experience-backed insights
+   - Thought-provoking questions that spark debate
+   - Actionable advice for professionals
+   - Witty observations that show insider knowledge
+4. **Sanctum QC**: Filter by qualityTier (discard C/F), calculate toxicityScore.
+5. **Monetization Scoring**: Calculate all 5 monetization scores for each strategy.
+6. **Output**: Return JSON with strategies ranked by monetizationScore.
+
+**OPTIMAL REPLY CHARACTERISTICS FOR MONETIZATION:**
+- Length: 80-180 characters (digestible but substantive)
+- Tone: Confident, informed, slightly provocative
+- Format: One clear point, no fluff
+- Hook: Strong opening that stops the scroll
+- CTA (implicit): Invites engagement without begging for it
 `;
 
     try {

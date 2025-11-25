@@ -101,7 +101,116 @@ class CircuitBreaker {
 }
 
 /**
- * X API Automation Service for APEX System v7.4
+ * HIGH-PREMIUM-DENSITY NICHE KEYWORDS
+ * These keywords help identify posts in niches with high Premium user concentration
+ */
+const NICHE_KEYWORDS: Record<string, string[]> = {
+    tech: ['AI', 'startup', 'SaaS', 'software', 'developer', 'engineering', 'tech', 'programming', 'code', 'API', 'cloud', 'DevOps', 'machine learning', 'GPT', 'LLM', 'founder', 'YC', 'Series A', 'product'],
+    finance: ['investing', 'stocks', 'portfolio', 'market', 'trading', 'hedge fund', 'PE', 'VC', 'valuation', 'IPO', 'earnings', 'dividend', 'returns', 'alpha', 'fund'],
+    crypto: ['crypto', 'bitcoin', 'ethereum', 'defi', 'NFT', 'web3', 'blockchain', 'token', 'wallet', 'protocol', 'solana', 'BTC', 'ETH'],
+    business: ['business', 'CEO', 'leadership', 'strategy', 'growth', 'revenue', 'scaling', 'enterprise', 'B2B', 'acquisition', 'management', 'executive'],
+    creator: ['creator economy', 'content', 'audience', 'subscribers', 'monetization', 'newsletter', 'course', 'community', 'personal brand']
+};
+
+/**
+ * Detect the niche of a post based on content keywords
+ */
+function detectNiche(text: string): 'tech' | 'finance' | 'crypto' | 'business' | 'creator' | 'politics' | 'entertainment' | 'other' {
+    const lowerText = text.toLowerCase();
+    const scores: Record<string, number> = { tech: 0, finance: 0, crypto: 0, business: 0, creator: 0 };
+
+    for (const [niche, keywords] of Object.entries(NICHE_KEYWORDS)) {
+        for (const keyword of keywords) {
+            if (lowerText.includes(keyword.toLowerCase())) {
+                scores[niche] += 1;
+            }
+        }
+    }
+
+    const maxNiche = Object.entries(scores).reduce((a, b) => a[1] > b[1] ? a : b);
+    if (maxNiche[1] >= 2) return maxNiche[0] as any;
+    if (maxNiche[1] === 1) return maxNiche[0] as any;
+    return 'other';
+}
+
+/**
+ * Estimate Premium audience ratio based on author characteristics
+ */
+function estimatePremiumAudienceRatio(
+    followerCount: number,
+    isVerified: boolean,
+    niche: string
+): number {
+    // Base ratio: ~2-3% of X users are Premium
+    let ratio = 0.025;
+
+    // Verified authors have audiences with higher Premium ratios
+    if (isVerified) ratio += 0.05;
+
+    // High-follower accounts in premium niches have better Premium ratios
+    if (followerCount > 100000) ratio += 0.03;
+    else if (followerCount > 50000) ratio += 0.02;
+    else if (followerCount > 10000) ratio += 0.01;
+
+    // Niche multipliers
+    const nicheMultipliers: Record<string, number> = {
+        tech: 2.5,
+        finance: 2.3,
+        crypto: 2.2,
+        business: 2.0,
+        creator: 1.8,
+        politics: 1.2,
+        entertainment: 0.8,
+        other: 1.0
+    };
+
+    ratio *= nicheMultipliers[niche] || 1.0;
+
+    return Math.min(ratio, 0.25); // Cap at 25%
+}
+
+/**
+ * Calculate monetization potential (0-100) for a post
+ */
+function calculateMonetizationPotential(
+    isVerified: boolean,
+    followerCount: number,
+    niche: string,
+    replyCount: number,
+    engagementRate: number
+): number {
+    let score = 0;
+
+    // Verified author = +30 points (their audience is Premium-rich)
+    if (isVerified) score += 30;
+
+    // Niche scoring (high-Premium niches)
+    const nicheScores: Record<string, number> = {
+        tech: 25, finance: 23, crypto: 22, business: 20,
+        creator: 15, politics: 5, entertainment: 3, other: 5
+    };
+    score += nicheScores[niche] || 5;
+
+    // Follower count scoring (sweet spot: 10k-500k)
+    if (followerCount >= 50000 && followerCount <= 500000) score += 20;
+    else if (followerCount >= 10000 && followerCount < 50000) score += 15;
+    else if (followerCount > 500000) score += 12; // Very large accounts = diluted attention
+    else score += 5;
+
+    // Low reply competition = high visibility for your reply
+    if (replyCount < 10) score += 15;
+    else if (replyCount < 25) score += 10;
+    else if (replyCount < 50) score += 5;
+
+    // High engagement rate = active Premium audience
+    if (engagementRate > 0.05) score += 10;
+    else if (engagementRate > 0.02) score += 5;
+
+    return Math.min(score, 100);
+}
+
+/**
+ * X API Automation Service for APEX System v7.5 (Monetization-Optimized)
  */
 export class XAutomationService {
     private roClient: TwitterApiReadOnly;
@@ -147,7 +256,8 @@ export class XAutomationService {
                 throw new Error("Circuit Breaker is OPEN. Requests halted temporarily.");
             }
 
-            let searchQuery = (criteria.keywords && criteria.keywords.length > 0 ? criteria.keywords.join(' OR ') : '(AI OR startup OR tech OR business)') + ' lang:en -is:retweet -is:reply';
+            // Build search query optimized for monetization
+            let searchQuery = (criteria.keywords && criteria.keywords.length > 0 ? criteria.keywords.join(' OR ') : '(AI OR startup OR tech OR SaaS OR founder OR VC OR investing)') + ' lang:en -is:retweet -is:reply';
             if (criteria.excludeKeywords && criteria.excludeKeywords.length > 0) {
                 searchQuery += ' ' + criteria.excludeKeywords.map(k => `-${k}`).join(' ');
             }
@@ -155,7 +265,7 @@ export class XAutomationService {
             const searchResults = await this.roClient.v2.search(searchQuery, {
                 max_results: 100,
                 'tweet.fields': ['created_at', 'public_metrics', 'author_id'],
-                'user.fields': ['username', 'name', 'public_metrics', 'verified'],
+                'user.fields': ['username', 'name', 'public_metrics', 'verified', 'verified_type'],
                 expansions: ['author_id']
             });
 
@@ -177,12 +287,51 @@ export class XAutomationService {
 
                 const metrics = tweet.public_metrics!;
                 const authorMetrics = author.public_metrics!;
-                
+
                 if(this.config.blacklistedAccounts?.includes(author.username)) continue;
                 if(criteria.authorFollowerMin && authorMetrics.followers_count < criteria.authorFollowerMin) continue;
 
-                const eligibilityScore = this.calculateEligibilityScore(metrics, authorMetrics, ageHours);
-                if (eligibilityScore < 0.5) continue;
+                // ★ NEW v7.5: Detect if author is verified (Premium subscriber)
+                const isVerified = !!(author as any).verified || !!(author as any).verified_type;
+
+                // ★ NEW v7.5: Skip non-verified if requireVerifiedAuthor is set
+                if (criteria.requireVerifiedAuthor && !isVerified) continue;
+
+                // ★ NEW v7.5: Apply max reply count filter (avoid buried replies)
+                if (criteria.maxReplyCount && metrics.reply_count > criteria.maxReplyCount) continue;
+
+                // ★ NEW v7.5: Detect niche for Premium density estimation
+                const niche = detectNiche(tweet.text);
+
+                // ★ NEW v7.5: Filter by target niches if specified
+                if (criteria.targetNiches && criteria.targetNiches.length > 0) {
+                    if (!criteria.targetNiches.includes(niche as any) && niche !== 'other') continue;
+                }
+
+                // ★ NEW v7.5: Calculate engagement rate for filtering
+                const engagementRate = (metrics.like_count + metrics.retweet_count) / (authorMetrics.followers_count || 1);
+                if (criteria.minEngagementRate && engagementRate < criteria.minEngagementRate) continue;
+
+                // ★ NEW v7.5: Enhanced eligibility score with monetization factors
+                const eligibilityScore = this.calculateEligibilityScore(
+                    metrics, authorMetrics, ageHours, isVerified, niche
+                );
+
+                // ★ NEW v7.5: Lower threshold but prioritize by monetization potential
+                if (eligibilityScore < 0.35) continue;
+
+                // ★ NEW v7.5: Calculate monetization-specific metrics
+                const premiumAudienceRatio = estimatePremiumAudienceRatio(
+                    authorMetrics.followers_count, isVerified, niche
+                );
+                const monetizationPotential = calculateMonetizationPotential(
+                    isVerified, authorMetrics.followers_count, niche,
+                    metrics.reply_count, engagementRate
+                );
+                const premiumEngagementLikelihood = Math.min(
+                    premiumAudienceRatio * (isVerified ? 1.5 : 1.0) * (engagementRate > 0.03 ? 1.3 : 1.0),
+                    0.5
+                );
 
                 candidates.push({
                     id: tweet.id,
@@ -192,11 +341,27 @@ export class XAutomationService {
                     createdAt: new Date(tweet.created_at!),
                     metrics: { views: metrics.impression_count || 0, likes: metrics.like_count, reposts: metrics.retweet_count, replies: metrics.reply_count },
                     eligibilityScore,
-                    reasons: this.getEligibilityReasons(metrics, authorMetrics, eligibilityScore)
+                    reasons: this.getEligibilityReasons(metrics, authorMetrics, eligibilityScore, isVerified, niche, monetizationPotential),
+                    // ★ NEW v7.5: Monetization tracking fields
+                    authorIsVerified: isVerified,
+                    authorFollowerCount: authorMetrics.followers_count,
+                    estimatedPremiumAudienceRatio: premiumAudienceRatio,
+                    monetizationPotential,
+                    premiumEngagementLikelihood,
+                    niche: niche as any
                 });
             }
 
-            return candidates.sort((a, b) => b.eligibilityScore - a.eligibilityScore).slice(0, 20);
+            // ★ NEW v7.5: Sort by monetization potential, then eligibility score
+            return candidates
+                .sort((a, b) => {
+                    // Primary: monetization potential (weight: 60%)
+                    // Secondary: eligibility score (weight: 40%)
+                    const aScore = (a.monetizationPotential / 100 * 0.6) + (a.eligibilityScore * 0.4);
+                    const bScore = (b.monetizationPotential / 100 * 0.6) + (b.eligibilityScore * 0.4);
+                    return bScore - aScore;
+                })
+                .slice(0, 20);
         } catch (error) {
             console.error('Error finding candidates:', error);
             this.circuitBreaker.recordFailure(); // Record failure
@@ -209,18 +374,110 @@ export class XAutomationService {
         }
     }
 
-    private calculateEligibilityScore(postMetrics: any, authorMetrics: any, ageHours: number): number {
-        const engagementRate = (postMetrics.like_count + postMetrics.retweet_count * 2 + postMetrics.reply_count * 3) / (authorMetrics.followers_count || 1);
-        const followerScore = Math.log10(Math.max(authorMetrics.followers_count, 1)) / 8;
-        const recencyBonus = Math.max(0, (24 - ageHours) / 24) * 0.2;
-        return Math.min(engagementRate * 1000, 0.4) + Math.min(followerScore, 0.3) + recencyBonus;
+    /**
+     * MONETIZATION-OPTIMIZED ELIGIBILITY SCORING v7.5
+     *
+     * X's monetization (as of Nov 2024) pays based on PREMIUM USER ENGAGEMENT ONLY.
+     * This scoring system prioritizes posts that maximize Premium user interaction potential.
+     *
+     * Key factors:
+     * 1. Verified author = Premium subscriber = their audience has higher Premium density
+     * 2. Tech/finance/business niches have 3-5x higher Premium user ratios
+     * 3. Lower reply count = your reply gets more visibility
+     * 4. Higher engagement rate = more active (likely Premium) audience
+     * 5. Optimal timing (business hours) = more Premium users online
+     */
+    private calculateEligibilityScore(
+        postMetrics: any,
+        authorMetrics: any,
+        ageHours: number,
+        isVerified: boolean = false,
+        detectedNiche: string = 'other'
+    ): number {
+        // Base engagement rate (likes weighted 30x, retweets 20x per X's algorithm)
+        const weightedEngagement = (postMetrics.like_count * 30 + postMetrics.retweet_count * 20 + postMetrics.reply_count) / (authorMetrics.followers_count || 1);
+        const engagementScore = Math.min(weightedEngagement * 100, 0.25);
+
+        // Follower score with diminishing returns
+        const followerScore = Math.min(Math.log10(Math.max(authorMetrics.followers_count, 1)) / 7, 0.15);
+
+        // Recency bonus (fresher posts = better reply visibility)
+        const recencyBonus = Math.max(0, (12 - ageHours) / 12) * 0.15;
+
+        // ★ VERIFIED/PREMIUM AUTHOR BONUS (CRITICAL FOR MONETIZATION)
+        // Verified accounts = Premium subscribers = their audience is 3-5x more likely to be Premium
+        const verifiedBonus = isVerified ? 0.25 : 0;
+
+        // ★ NICHE PREMIUM DENSITY MULTIPLIER
+        // These niches have significantly higher Premium user ratios
+        const nichePremiumMultipliers: Record<string, number> = {
+            'tech': 0.15,      // Tech Twitter has highest Premium density
+            'finance': 0.14,   // Finance/investing crowd pays for Premium
+            'crypto': 0.13,    // Crypto users are heavy Premium adopters
+            'business': 0.12,  // Business/entrepreneur space
+            'creator': 0.10,   // Creator economy folks
+            'politics': 0.05,  // Lower monetization potential
+            'entertainment': 0.03,
+            'other': 0.02
+        };
+        const nicheBonus = nichePremiumMultipliers[detectedNiche] || 0.02;
+
+        // ★ LOW REPLY COMPETITION BONUS
+        // Fewer replies = your reply is more visible = more engagement potential
+        const replyCount = postMetrics.reply_count || 0;
+        let competitionBonus = 0;
+        if (replyCount < 10) competitionBonus = 0.12;       // Goldmine: early to the conversation
+        else if (replyCount < 25) competitionBonus = 0.08;  // Good: still visible
+        else if (replyCount < 50) competitionBonus = 0.04;  // Decent
+        else if (replyCount < 100) competitionBonus = 0.02; // Crowded
+        // 100+ replies = 0 bonus (your reply will get buried)
+
+        // ★ HIGH ENGAGEMENT SIGNALS ACTIVE PREMIUM AUDIENCE
+        const engagementRateRaw = (postMetrics.like_count + postMetrics.retweet_count) / (authorMetrics.followers_count || 1);
+        const activeAudienceBonus = engagementRateRaw > 0.05 ? 0.08 : (engagementRateRaw > 0.02 ? 0.04 : 0);
+
+        // ★ OPTIMAL TIMING BONUS (Premium users most active during business hours)
+        const currentHour = new Date().getUTCHours();
+        const isPremiumPeakHours = (currentHour >= 13 && currentHour <= 22); // 9AM-6PM EST = 13-22 UTC
+        const timingBonus = isPremiumPeakHours ? 0.05 : 0;
+
+        const totalScore = engagementScore + followerScore + recencyBonus +
+                          verifiedBonus + nicheBonus + competitionBonus +
+                          activeAudienceBonus + timingBonus;
+
+        return Math.min(totalScore, 1.0); // Cap at 1.0
     }
 
-    private getEligibilityReasons(postMetrics: any, authorMetrics: any, score: number): string[] {
-        const reasons = [];
-        if (score > 0.7) reasons.push('High engagement');
-        if (authorMetrics.followers_count > 100000) reasons.push('Influential author');
-        if (postMetrics.reply_count < 20) reasons.push('Low reply competition');
+    private getEligibilityReasons(
+        postMetrics: any,
+        authorMetrics: any,
+        score: number,
+        isVerified: boolean = false,
+        niche: string = 'other',
+        monetizationPotential: number = 0
+    ): string[] {
+        const reasons: string[] = [];
+
+        // ★ MONETIZATION-FOCUSED REASONS (v7.5)
+        if (isVerified) reasons.push('✓ Verified author (Premium audience)');
+        if (monetizationPotential >= 70) reasons.push('💰 High monetization potential');
+        else if (monetizationPotential >= 50) reasons.push('💵 Good monetization potential');
+
+        if (['tech', 'finance', 'crypto', 'business'].includes(niche)) {
+            reasons.push(`🎯 Premium-rich niche: ${niche}`);
+        }
+
+        if (postMetrics.reply_count < 10) reasons.push('🥇 Very low competition (early reply)');
+        else if (postMetrics.reply_count < 25) reasons.push('🥈 Low competition');
+
+        if (score > 0.7) reasons.push('📈 High engagement rate');
+        if (authorMetrics.followers_count > 100000) reasons.push('⭐ Influential author (100k+)');
+        else if (authorMetrics.followers_count > 50000) reasons.push('📊 Mid-tier influencer (50k+)');
+
+        const engagementRate = (postMetrics.like_count + postMetrics.retweet_count) / (authorMetrics.followers_count || 1);
+        if (engagementRate > 0.05) reasons.push('🔥 Viral engagement (5%+ rate)');
+        else if (engagementRate > 0.02) reasons.push('📊 Strong engagement (2%+ rate)');
+
         return reasons;
     }
 
@@ -251,7 +508,7 @@ export class XAutomationService {
 
     async generateAndReply(post: PostCandidate): Promise<AutomationResult> {
         const canReplyCheck = this.canReply();
-        if (!canReplyCheck.allowed && !this.config.dryRun) { 
+        if (!canReplyCheck.allowed && !this.config.dryRun) {
             return { success: false, error: canReplyCheck.reason, timestamp: new Date() };
         }
 
@@ -262,30 +519,43 @@ export class XAutomationService {
                 return { success: false, error: 'No suitable reply strategies generated.', timestamp: new Date() };
             }
 
-            const bestStrategy = strategies.sort((a, b) => b.scores.algorithmScore - a.scores.algorithmScore)[0];
+            // ★ v7.5: Sort by MONETIZATION SCORE (primary), algorithm score (secondary)
+            // This prioritizes replies that will generate the most revenue
+            const bestStrategy = strategies.sort((a, b) => {
+                const aMonetization = a.scores.monetizationScore || 0;
+                const bMonetization = b.scores.monetizationScore || 0;
+                // 70% weight on monetization, 30% on algorithm score
+                const aTotal = (aMonetization * 0.7) + (a.scores.algorithmScore * 0.3);
+                const bTotal = (bMonetization * 0.7) + (b.scores.algorithmScore * 0.3);
+                return bTotal - aTotal;
+            })[0];
 
-            if (bestStrategy.scores.algorithmScore < this.config.safetyChecks.minimumConfidenceScore) {
+            // Use monetizationScore for confidence check (or fall back to algorithmScore)
+            const effectiveScore = bestStrategy.scores.monetizationScore || bestStrategy.scores.algorithmScore;
+
+            if (effectiveScore < this.config.safetyChecks.minimumConfidenceScore) {
                  return {
                     success: false,
-                    error: `Strategy score (${bestStrategy.scores.algorithmScore}) is below minimum confidence (${this.config.safetyChecks.minimumConfidenceScore}).`,
+                    error: `Strategy monetization score (${effectiveScore}) is below minimum confidence (${this.config.safetyChecks.minimumConfidenceScore}).`,
                     timestamp: new Date(),
                     strategy: bestStrategy
                 };
             }
-            
+
             if (this.config.dryRun || !this.rwClient) {
                 console.log(`[DRY RUN] Would reply to post ${post.id} with: "${bestStrategy.replyText}"`);
+                console.log(`[DRY RUN] Monetization Score: ${bestStrategy.scores.monetizationScore}, Premium Potential: ${bestStrategy.scores.premiumEngagementPotential}`);
                  return {
                     success: true,
                     postId: post.id,
                     strategy: bestStrategy,
                     timestamp: new Date(),
-                    metrics: { processingTime: Date.now() - startTime, confidenceScore: bestStrategy.scores.algorithmScore }
+                    metrics: { processingTime: Date.now() - startTime, confidenceScore: effectiveScore }
                 };
             }
 
             const replyResult = await this.rwClient.v2.reply(bestStrategy.replyText, post.id);
-            
+
             // If we reach here, the API call succeeded. Reset circuit breaker.
             this.circuitBreaker.recordSuccess();
             this.lastReplyTime = Date.now();
@@ -296,7 +566,7 @@ export class XAutomationService {
                 replyId: replyResult.data.id,
                 strategy: bestStrategy,
                 timestamp: new Date(),
-                metrics: { processingTime: Date.now() - startTime, confidenceScore: bestStrategy.scores.algorithmScore }
+                metrics: { processingTime: Date.now() - startTime, confidenceScore: effectiveScore }
             };
 
         } catch (error) {
@@ -401,10 +671,34 @@ export const DEFAULT_AUTOMATION_CONFIG: AutomationConfig = {
     }
 };
 
+/**
+ * MONETIZATION-OPTIMIZED DEFAULT SEARCH CRITERIA v7.5
+ *
+ * Key changes from v7.4:
+ * - Keywords optimized for high-Premium-density niches (tech, finance, business)
+ * - Lower minViews threshold to catch posts early (less reply competition)
+ * - maxReplyCount to avoid getting buried in crowded threads
+ * - prioritizeVerified to boost Premium-audience posts
+ * - Shorter maxAgeHours to catch viral posts early
+ */
 export const DEFAULT_SEARCH_CRITERIA: PostSearchCriteria = {
-    minViews: 100000,
-    maxAgeHours: 12,
-    keywords: ['AI', 'startup', 'tech', 'innovation', 'business', 'SaaS'],
-    excludeKeywords: ['politics', 'spam'],
-    authorFollowerMin: 10000
+    minViews: 50000,           // Lower threshold to catch posts early
+    maxAgeHours: 6,            // Shorter window = less reply competition
+    keywords: [
+        // Tech (highest Premium density)
+        'AI', 'startup', 'SaaS', 'founder', 'YC', 'Series A', 'GPT', 'LLM',
+        // Finance (very high Premium density)
+        'investing', 'portfolio', 'VC', 'fundraising',
+        // Business (high Premium density)
+        'CEO', 'scaling', 'growth', 'revenue',
+        // Crypto (high Premium density)
+        'crypto', 'web3', 'bitcoin', 'ethereum'
+    ],
+    excludeKeywords: ['politics', 'spam', 'giveaway', 'follow for follow', 'DM me'],
+    authorFollowerMin: 10000,
+    // ★ NEW v7.5 monetization settings
+    prioritizeVerified: true,      // Boost verified authors (Premium audiences)
+    preferLowReplyCount: true,     // Prefer posts with fewer replies
+    maxReplyCount: 50,             // Avoid posts where replies get buried
+    targetNiches: ['tech', 'finance', 'crypto', 'business', 'creator']
 };

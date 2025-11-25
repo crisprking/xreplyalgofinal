@@ -14,6 +14,12 @@ export interface Scores {
     networkEffect: number;
     timingOptimal: number;
     graphJetRelevance: number; // Based on Twitter's GraphJet
+    // NEW v7.5: Monetization-focused scores (X pays based on Premium user engagement)
+    premiumEngagementPotential: number; // 0-100: Likelihood to attract Premium/verified user engagement
+    bookmarkPotential: number; // 0-100: Likelihood to be bookmarked (weighted in X monetization)
+    conversationStarterScore: number; // 0-100: Ability to start threads (more engagement = more $)
+    thoughtLeaderAlignment: number; // 0-100: Appeals to Premium demographics (tech, finance, business)
+    monetizationScore: number; // 0-100: COMPOSITE score optimized for X revenue sharing
 }
 
 export interface SanctumCheck {
@@ -157,6 +163,13 @@ export interface PostSearchCriteria {
     languages?: string[];
     includeReplies?: boolean;
     includeRetweets?: boolean;
+    // NEW v7.5: Monetization-optimized search criteria
+    requireVerifiedAuthor?: boolean; // Only target Premium/verified accounts
+    prioritizeVerified?: boolean; // Boost verified authors in ranking (default: true)
+    targetNiches?: ('tech' | 'finance' | 'crypto' | 'business' | 'creator')[]; // High-Premium-density niches
+    minEngagementRate?: number; // Minimum engagement rate (higher = more active Premium audience)
+    preferLowReplyCount?: boolean; // Less competition = better visibility for your reply
+    maxReplyCount?: number; // Cap reply count to avoid getting buried
 }
 
 export interface AutomationConfig {
@@ -188,6 +201,13 @@ export interface PostCandidate {
     };
     eligibilityScore: number;
     reasons: string[];
+    // NEW v7.5: Premium/monetization tracking
+    authorIsVerified: boolean; // Blue checkmark (Premium subscriber)
+    authorFollowerCount: number;
+    estimatedPremiumAudienceRatio: number; // 0-1: Estimated % of author's audience that is Premium
+    monetizationPotential: number; // 0-100: Overall monetization potential of replying to this post
+    premiumEngagementLikelihood: number; // 0-1: Probability reply will get Premium user engagement
+    niche: 'tech' | 'finance' | 'crypto' | 'business' | 'creator' | 'politics' | 'entertainment' | 'other';
 }
 
 export interface AutomationResult {
