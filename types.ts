@@ -1,5 +1,9 @@
 
-// Enhanced type definitions for APEX X Ultimate System v7.4
+// Enhanced type definitions for APEX X MONETIZATION MAXIMIZER v8.0
+// Updated November 2024: Revenue-optimized for new X monetization model
+// - Engagement from Premium users (not ads in replies)
+// - Algorithm weights: Reply-to-reply (75x), Profile click (12x), Dwell time (10x)
+// - SimClusters targeting for high Premium user density topics
 
 export interface Scores {
     authority: number;
@@ -14,6 +18,12 @@ export interface Scores {
     networkEffect: number;
     timingOptimal: number;
     graphJetRelevance: number; // Based on Twitter's GraphJet
+    // NEW v8.0 Monetization-Focused Metrics
+    conversationChainPotential: number; // 0-100: Likelihood of triggering reply-to-reply chain (75x boost)
+    profileClickPotential: number; // 0-100: Likelihood of driving profile visits (12x boost)
+    dwellTimeScore: number; // 0-100: Expected reading time engagement (10x boost for >2min)
+    premiumUserAppeal: number; // 0-100: Appeal to Premium/verified users (revenue multiplier)
+    revenueImpactScore: number; // 0-100: Composite monetization potential score
 }
 
 export interface SanctumCheck {
@@ -42,6 +52,14 @@ export interface HeavyRankerFeatures {
     pRetweet: number;
     pProfileClick: number;
     authorReputation: number;
+    // NEW v8.0: 2024 Algorithm Weights
+    pReplyToReply: number; // 75x boost - HIGHEST VALUE for monetization
+    pQuoteTweet: number; // 2x engagement vs standard
+    pBookmark: number; // High intent signal
+    pDwellOver2Min: number; // 10x boost for extended reading
+    premiumUserDensity: number; // 0-1: Concentration of Premium users in thread
+    simClusterAlignment: number; // 0-1: Match to high-value topic clusters
+    estimatedRevenueMultiplier: number; // Composite revenue potential
 }
 
 export interface PostDeconstruction {
@@ -60,6 +78,10 @@ export interface PostDeconstruction {
         cluster: string; // e.g., "Tech Twitter", "Crypto", "Politics"
         centrality: number; // 0-100
         interactionVelocity: 'static' | 'rising' | 'viral';
+        // NEW v8.0: Premium User Targeting
+        premiumUserDensity: 'low' | 'medium' | 'high' | 'very_high'; // Premium user concentration
+        estimatedPremiumReach: number; // 0-100: % of audience that are Premium
+        revenueClusterTier: 'S' | 'A' | 'B' | 'C'; // Revenue potential of this SimCluster
     };
     heavyRankerFeatures: HeavyRankerFeatures;
 }
@@ -157,6 +179,12 @@ export interface PostSearchCriteria {
     languages?: string[];
     includeReplies?: boolean;
     includeRetweets?: boolean;
+    // NEW v8.0: Premium User & Monetization Targeting
+    prioritizeVerifiedAuthors?: boolean; // Target verified/Premium authors (higher Premium audience)
+    premiumAudienceTopics?: string[]; // Topics with high Premium user density
+    minEngagementRate?: number; // Minimum engagement rate threshold
+    targetSimClusters?: string[]; // Specific SimClusters to target (e.g., "Tech", "Finance", "AI")
+    revenueOptimized?: boolean; // Enable revenue-focused ranking
 }
 
 export interface AutomationConfig {

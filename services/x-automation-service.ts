@@ -181,8 +181,12 @@ export class XAutomationService {
                 if(this.config.blacklistedAccounts?.includes(author.username)) continue;
                 if(criteria.authorFollowerMin && authorMetrics.followers_count < criteria.authorFollowerMin) continue;
 
-                const eligibilityScore = this.calculateEligibilityScore(metrics, authorMetrics, ageHours);
-                if (eligibilityScore < 0.5) continue;
+                // Pass verified status for Premium user bonus calculation
+                const isVerified = author.verified || false;
+                const eligibilityScore = this.calculateEligibilityScore(metrics, authorMetrics, ageHours, isVerified);
+
+                // Revenue-optimized threshold: prioritize higher scores
+                if (eligibilityScore < 0.45) continue;
 
                 candidates.push({
                     id: tweet.id,
@@ -192,7 +196,7 @@ export class XAutomationService {
                     createdAt: new Date(tweet.created_at!),
                     metrics: { views: metrics.impression_count || 0, likes: metrics.like_count, reposts: metrics.retweet_count, replies: metrics.reply_count },
                     eligibilityScore,
-                    reasons: this.getEligibilityReasons(metrics, authorMetrics, eligibilityScore)
+                    reasons: this.getEligibilityReasons(metrics, authorMetrics, eligibilityScore, isVerified)
                 });
             }
 
@@ -209,18 +213,69 @@ export class XAutomationService {
         }
     }
 
-    private calculateEligibilityScore(postMetrics: any, authorMetrics: any, ageHours: number): number {
-        const engagementRate = (postMetrics.like_count + postMetrics.retweet_count * 2 + postMetrics.reply_count * 3) / (authorMetrics.followers_count || 1);
-        const followerScore = Math.log10(Math.max(authorMetrics.followers_count, 1)) / 8;
-        const recencyBonus = Math.max(0, (24 - ageHours) / 24) * 0.2;
-        return Math.min(engagementRate * 1000, 0.4) + Math.min(followerScore, 0.3) + recencyBonus;
+    /**
+     * REVENUE-OPTIMIZED ELIGIBILITY SCORING v8.0
+     * Based on X monetization model (post-November 2024):
+     * - Revenue = engagement from Premium/verified users
+     * - Premium+ interactions worth more than basic Premium
+     * - Algorithm boosts: Reply-to-reply (75x), Profile click (12x), Dwell time (10x)
+     */
+    private calculateEligibilityScore(postMetrics: any, authorMetrics: any, ageHours: number, isVerified?: boolean): number {
+        // Base engagement rate with 2024 algorithm weights
+        // Reply-to-reply potential = reply_count * 75x weight (normalized)
+        // Retweet = 20x, Like = 30x (but likes are easier, so lower revenue impact per unit)
+        const replyWeight = 3; // High weight - replies lead to conversation chains (75x boost)
+        const retweetWeight = 2; // Medium weight - exposure but not conversation
+        const likeWeight = 0.5; // Lower weight - engagement but not revenue-optimal
+
+        const weightedEngagement = (
+            postMetrics.like_count * likeWeight +
+            postMetrics.retweet_count * retweetWeight +
+            postMetrics.reply_count * replyWeight
+        ) / (authorMetrics.followers_count || 1);
+
+        // Follower score with Premium user density estimate
+        // Larger accounts tend to have more Premium followers in absolute numbers
+        const followerScore = Math.log10(Math.max(authorMetrics.followers_count, 1)) / 7;
+
+        // Recency bonus - fresher posts get more algorithm distribution
+        const recencyBonus = Math.max(0, (12 - ageHours) / 12) * 0.25; // Tighter window for optimal timing
+
+        // PREMIUM USER BONUS: Verified authors have Premium audiences
+        // Their followers are 2-4x more likely to be Premium subscribers
+        const verifiedBonus = isVerified ? 0.15 : 0;
+
+        // Conversation potential bonus - low reply count = opportunity for visible reply
+        const conversationOpportunity = postMetrics.reply_count < 50 ? 0.1 :
+                                        postMetrics.reply_count < 100 ? 0.05 : 0;
+
+        // High engagement rate indicates Premium-heavy audience (they engage more)
+        const engagementRateBonus = weightedEngagement > 0.05 ? 0.1 : 0;
+
+        return Math.min(weightedEngagement * 800, 0.35) +
+               Math.min(followerScore, 0.25) +
+               recencyBonus +
+               verifiedBonus +
+               conversationOpportunity +
+               engagementRateBonus;
     }
 
-    private getEligibilityReasons(postMetrics: any, authorMetrics: any, score: number): string[] {
+    private getEligibilityReasons(postMetrics: any, authorMetrics: any, score: number, isVerified?: boolean): string[] {
         const reasons = [];
-        if (score > 0.7) reasons.push('High engagement');
-        if (authorMetrics.followers_count > 100000) reasons.push('Influential author');
-        if (postMetrics.reply_count < 20) reasons.push('Low reply competition');
+        // Revenue-focused eligibility reasons
+        if (score > 0.7) reasons.push('High revenue potential');
+        if (score > 0.6) reasons.push('Strong Premium audience signal');
+        if (authorMetrics.followers_count > 100000) reasons.push('Large Premium audience pool');
+        if (authorMetrics.followers_count > 500000) reasons.push('Mega-influencer (high Premium density)');
+        if (postMetrics.reply_count < 20) reasons.push('Low competition - high visibility opportunity');
+        if (postMetrics.reply_count < 50 && postMetrics.like_count > 100) reasons.push('Conversation chain potential (75x)');
+        if (isVerified) reasons.push('Verified author (Premium audience 2-4x)');
+
+        // Engagement rate analysis
+        const engagementRate = (postMetrics.like_count + postMetrics.retweet_count + postMetrics.reply_count) / (authorMetrics.followers_count || 1);
+        if (engagementRate > 0.05) reasons.push('High engagement rate (Premium-heavy audience)');
+        if (engagementRate > 0.1) reasons.push('Viral potential (maximum revenue opportunity)');
+
         return reasons;
     }
 
@@ -262,9 +317,27 @@ export class XAutomationService {
                 return { success: false, error: 'No suitable reply strategies generated.', timestamp: new Date() };
             }
 
-            const bestStrategy = strategies.sort((a, b) => b.scores.algorithmScore - a.scores.algorithmScore)[0];
+            // REVENUE-OPTIMIZED STRATEGY SELECTION v8.0
+            // Prioritize: revenueImpactScore > conversationChainPotential > algorithmScore
+            const bestStrategy = strategies.sort((a, b) => {
+                // Primary: Revenue impact score (composite monetization potential)
+                const revenueA = a.scores.revenueImpactScore || a.scores.algorithmScore;
+                const revenueB = b.scores.revenueImpactScore || b.scores.algorithmScore;
 
-            if (bestStrategy.scores.algorithmScore < this.config.safetyChecks.minimumConfidenceScore) {
+                // Secondary: Conversation chain potential (75x algorithm boost)
+                const convChainA = a.scores.conversationChainPotential || 0;
+                const convChainB = b.scores.conversationChainPotential || 0;
+
+                // Weighted composite: 60% revenue, 30% conversation chain, 10% base algorithm
+                const compositeA = (revenueA * 0.6) + (convChainA * 0.3) + (a.scores.algorithmScore * 0.1);
+                const compositeB = (revenueB * 0.6) + (convChainB * 0.3) + (b.scores.algorithmScore * 0.1);
+
+                return compositeB - compositeA;
+            })[0];
+
+            // Use revenueImpactScore for confidence check, fallback to algorithmScore
+            const effectiveScore = bestStrategy.scores.revenueImpactScore || bestStrategy.scores.algorithmScore;
+            if (effectiveScore < this.config.safetyChecks.minimumConfidenceScore) {
                  return {
                     success: false,
                     error: `Strategy score (${bestStrategy.scores.algorithmScore}) is below minimum confidence (${this.config.safetyChecks.minimumConfidenceScore}).`,
@@ -401,10 +474,33 @@ export const DEFAULT_AUTOMATION_CONFIG: AutomationConfig = {
     }
 };
 
+/**
+ * REVENUE-OPTIMIZED SEARCH CRITERIA v8.0
+ * Targets topics and accounts with highest Premium user density
+ * Based on X monetization research: Tech, Finance, AI, Crypto have highest Premium concentration
+ */
 export const DEFAULT_SEARCH_CRITERIA: PostSearchCriteria = {
-    minViews: 100000,
-    maxAgeHours: 12,
-    keywords: ['AI', 'startup', 'tech', 'innovation', 'business', 'SaaS'],
-    excludeKeywords: ['politics', 'spam'],
-    authorFollowerMin: 10000
+    minViews: 50000, // Lower threshold to catch rising content early (first-mover advantage)
+    maxAgeHours: 8, // Tighter window for optimal algorithm distribution
+    // HIGH PREMIUM DENSITY TOPICS (SimClusters with verified high Premium user concentration)
+    keywords: [
+        // Tier S: Highest Premium density
+        'AI', 'GPT', 'LLM', 'artificial intelligence', 'machine learning',
+        'startup', 'founder', 'venture capital', 'Series A', 'YC',
+        'crypto', 'bitcoin', 'ethereum', 'web3', 'DeFi',
+        // Tier A: High Premium density
+        'SaaS', 'B2B', 'tech', 'software', 'developer',
+        'investing', 'finance', 'trading', 'markets',
+        // Tier B: Good Premium density
+        'entrepreneur', 'business', 'growth', 'product', 'innovation'
+    ],
+    excludeKeywords: [
+        'politics', 'spam', 'giveaway', 'follow back', 'RT to win',
+        'hate', 'controversial', 'breaking news', 'NSFW'
+    ],
+    authorFollowerMin: 25000, // Higher threshold = more Premium followers in absolute numbers
+    // NEW v8.0: Revenue optimization flags
+    prioritizeVerifiedAuthors: true,
+    revenueOptimized: true,
+    targetSimClusters: ['Tech Twitter', 'FinTwit', 'Crypto Twitter', 'AI/ML', 'Startup']
 };

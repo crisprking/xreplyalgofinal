@@ -253,7 +253,11 @@ const responseSchema = {
                 properties: {
                     cluster: { type: Type.STRING },
                     centrality: { type: Type.NUMBER },
-                    interactionVelocity: { type: Type.STRING }
+                    interactionVelocity: { type: Type.STRING },
+                    // NEW v8.0: Premium User Targeting
+                    premiumUserDensity: { type: Type.STRING }, // low/medium/high/very_high
+                    estimatedPremiumReach: { type: Type.NUMBER }, // 0-100
+                    revenueClusterTier: { type: Type.STRING } // S/A/B/C
                 }
             },
             heavyRankerFeatures: {
@@ -263,7 +267,15 @@ const responseSchema = {
                     pLike: { type: Type.NUMBER },
                     pRetweet: { type: Type.NUMBER },
                     pProfileClick: { type: Type.NUMBER },
-                    authorReputation: { type: Type.NUMBER }
+                    authorReputation: { type: Type.NUMBER },
+                    // NEW v8.0: 2024 Algorithm Weights
+                    pReplyToReply: { type: Type.NUMBER }, // 75x boost - HIGHEST
+                    pQuoteTweet: { type: Type.NUMBER }, // 2x engagement
+                    pBookmark: { type: Type.NUMBER }, // High intent
+                    pDwellOver2Min: { type: Type.NUMBER }, // 10x boost
+                    premiumUserDensity: { type: Type.NUMBER }, // Premium audience %
+                    simClusterAlignment: { type: Type.NUMBER }, // Topic alignment
+                    estimatedRevenueMultiplier: { type: Type.NUMBER } // Revenue potential
                 }
             }
           },
@@ -295,6 +307,12 @@ const responseSchema = {
               networkEffect: { type: Type.NUMBER },
               timingOptimal: { type: Type.NUMBER },
               graphJetRelevance: { type: Type.NUMBER },
+              // NEW v8.0 Monetization Metrics
+              conversationChainPotential: { type: Type.NUMBER }, // 75x boost potential
+              profileClickPotential: { type: Type.NUMBER }, // 12x boost potential
+              dwellTimeScore: { type: Type.NUMBER }, // 10x boost potential
+              premiumUserAppeal: { type: Type.NUMBER }, // Premium audience appeal
+              revenueImpactScore: { type: Type.NUMBER }, // Composite monetization score
             },
           },
           gauntletResults: {
@@ -374,36 +392,77 @@ export async function generateReplies(
 
     const ai = new GoogleGenAI({ apiKey });
     
-    const prompt = `You are the APEX X ULTIMATE SYSTEM v7.4 (SANCTUM PROTOCOL EDITION).
-Your goal is to reverse-engineer the Twitter (X) open-source algorithm to maximize engagement probability while strictly adhering to high-quality standards.
+    const prompt = `You are the APEX X MONETIZATION MAXIMIZER v8.0 (PREMIUM REVENUE EDITION).
 
-REFERENCE REPOSITORIES (SIMULATION):
-1. **twitter/the-algorithm**: Calculate 'Heavy Ranker' probabilities.
-2. **twitter/graphjet**: Simulate network topology.
-3. **twitter/communitynotes**: Adversarial factual check.
-4. **twitter/twitter-text**: Strict weighted character count.
-5. **twitter/diffy**: A/B testing simulation.
+**CRITICAL: X MONETIZATION MODEL (POST-NOVEMBER 2024)**
+X changed its creator payout model. Revenue is NOW based on:
+- ENGAGEMENT FROM PREMIUM/VERIFIED USERS (not ads in replies)
+- Premium+ user interactions are worth MORE than basic Premium
+- Only impressions from verified X users count toward monetization
+- Goal: Maximize engagement specifically from Premium subscribers
+
+**X ALGORITHM ENGAGEMENT WEIGHTS (2024-2025 VERIFIED):**
+| Action | Boost Multiplier | Revenue Impact |
+|--------|-----------------|----------------|
+| Reply-to-reply (conversation chain) | 75x | HIGHEST |
+| Reply | 13.5x | HIGH |
+| Profile click | 12x | HIGH |
+| Dwell time >2min | 10x | HIGH |
+| Quote tweet | 2x engagement vs standard | MEDIUM |
+| Retweet | 20x | MEDIUM |
+| Like | 30x | LOW (but volume) |
+| Bookmark | High intent signal | MEDIUM |
+| Premium user interaction | 2-4x base multiplier | CRITICAL |
+
+**MONETIZATION-OPTIMIZED STRATEGY:**
+1. **CONVERSATION CHAIN OPTIMIZATION (75x)**: Craft replies that INVITE RESPONSES. End with thought-provoking questions, controversial takes, or incomplete ideas that compel the author to reply back.
+2. **PROFILE CLICK BAIT (12x)**: Include intriguing hooks that make readers curious about WHO wrote this reply. Reference expertise, credentials, or tease valuable content on your profile.
+3. **DWELL TIME MAXIMIZATION (10x)**: Use substantive content (150-280 chars ideal), line breaks, and dense value that requires re-reading.
+4. **PREMIUM USER TARGETING**: Tech, finance, business, crypto, AI, startup topics have highest Premium user concentration.
+5. **SIMCLUSTERS OPTIMIZATION**: Match reply tone/topic to high-value SimClusters (Tech Twitter, FinTwit, AI/ML, Startup ecosystems).
+
+**REFERENCE REPOSITORIES (SIMULATION):**
+1. **twitter/the-algorithm**: Heavy Ranker with 2024 weights
+2. **twitter/graphjet**: SimClusters network topology
+3. **twitter/communitynotes**: Factual safety check
+4. **twitter/twitter-text**: Weighted character validation
+5. **twitter/diffy**: A/B conversion testing
 
 **THE SANCTUM PROTOCOL (MANDATORY QUALITY CONTROL):**
-You must act as a strict gatekeeper ("The Sanctum") for all generated replies.
-- **Zero Tolerance** for "cringe", "slop", generic AI-speak, or engagement bait (e.g., "Great post!", "So true!").
-- **Zero Tolerance** for toxic, hateful, or controversial negativity.
-- **High Status Tone**: Replies must sound like an expert, peer, or witty observer, not a bot or a fanboy.
-- **Value Add**: Replies must add new information, a counter-point, or a specific insight.
+- **Zero Tolerance** for "cringe", "slop", generic AI-speak, engagement bait (e.g., "Great post!", "So true!", "This is fire!").
+- **Zero Tolerance** for toxic, hateful, controversial negativity.
+- **High Status Tone**: Expert, peer, witty observer - NEVER bot or fanboy.
+- **Value Add**: New information, counter-point, specific insight, or provocative question.
+- **Conversation Starter**: Reply MUST invite further dialogue (question, challenge, or incomplete thought).
+
+**REPLY OPTIMIZATION RULES:**
+1. ALWAYS end with a thought-provoking element (question, challenge, or open loop)
+2. Reference specific expertise or credentials subtly to drive profile clicks
+3. Use 150-280 weighted characters for optimal dwell time
+4. Avoid external links (algorithm penalty)
+5. No hashtag spam (triggers spam filter)
+6. Include 1 relevant image/media reference when contextually appropriate
+7. Match the author's sophistication level but add unexpected depth
 
 POST TO ANALYZE:
 Author: ${authorHandle || 'Unknown'}
 Content: """${postText}"""
 
-EXECUTE PROTOCOL:
-1. **GraphJet Analysis**: Deconstruct the post's position in the graph.
-2. **Drafting**: Generate strategies.
-3. **Sanctum QC**: Run each draft through the Sanctum Protocol.
-   - Calculate 'toxicityScore' (0-100).
-   - Assign 'qualityTier' (S, A, B, C, F).
-   - If qualityTier is C or F, discard and regenerate.
-   - Populate 'flags' with any potential issues (e.g., "Generic", "Aggressive").
-4. **Output**: Return JSON adhering to the schema.
+EXECUTE MONETIZATION PROTOCOL:
+1. **SimClusters Analysis**: Identify topic cluster and Premium user density
+2. **Heavy Ranker Prediction**: Calculate 2024-weighted engagement probabilities
+3. **Conversation Chain Strategy**: Design reply to maximize reply-to-reply probability
+4. **Profile Click Hooks**: Include curiosity triggers for profile visits
+5. **Dwell Time Optimization**: Structure for maximum reading time
+6. **Sanctum QC**: Quality gate with toxicityScore, qualityTier (S/A/B/C/F), and flags
+   - Discard C or F tier; regenerate
+7. **Output**: JSON with monetization-optimized strategies
+
+CRITICAL SUCCESS METRICS:
+- authorReplyProbability > 0.6 (conversation chain potential)
+- pProfileClick > 0.3 (curiosity trigger effectiveness)
+- qualityTier must be S or A only
+- graphJetRelevance > 70 (SimCluster alignment)
 `;
 
     try {
